@@ -36,6 +36,16 @@
 
         public async Task<ServiceResponse<List<Product>>> GetProductsByCategory(string categoryUrl)
         {
+            var categoryExists = await _context.Categories.AnyAsync(c => c.Url.ToLower().Equals(categoryUrl.ToLower()));
+            if (!categoryExists)
+            {
+                return new ServiceResponse<List<Product>>
+                {
+                    Success = false,
+                    Message = "Sorry, but this category does not exist"
+                };
+            }
+
             var response = new ServiceResponse<List<Product>>
             {
                 Data = await _context.Products.Where(p => p.Category.Url.ToLower().Equals(categoryUrl.ToLower())).Include(p => p.Variants).ToListAsync()
@@ -50,17 +60,27 @@
 
         public async Task<ServiceResponse<ProductSearchResult>> SearchPeoducts(string searchText, int page)
         {
-            var pageResult = 2f;
-            var pageCount = Math.Ceiling((await FindProductsBySearchText(searchText)).Count() / pageResult);
-            var products = await _context.Products.Where(p => p.Title.ToLower().Contains(searchText.ToLower()) || p.Description.ToLower().Contains(searchText.ToLower())).Include(p => p.Variants).Skip((page - 1) * (int)pageResult).Take((int)pageResult).ToListAsync();
+            const int pageSize = 10;
+            var lowered = searchText.ToLower();
+            var totalCount = await _context.Products
+                .Where(p => p.Title.ToLower().Contains(lowered) || p.Description.ToLower().Contains(lowered))
+                .CountAsync();
+            var pageCount = (int)Math.Ceiling(totalCount / (float)pageSize);
+            var currentPage = pageCount == 0 ? 1 : Math.Clamp(page, 1, pageCount);
+            var products = await _context.Products
+                .Where(p => p.Title.ToLower().Contains(lowered) || p.Description.ToLower().Contains(lowered))
+                .Include(p => p.Variants)
+                .Skip((currentPage - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
             var response = new ServiceResponse<ProductSearchResult>
             {
                 Data = new ProductSearchResult
                 {
                     Products = products,
-                    CurrentPage = page,
-                    Pages = (int)pageCount
+                    CurrentPage = currentPage,
+                    Pages = pageCount
                 }
             };
             return response;
