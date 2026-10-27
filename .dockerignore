@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/*.swp
+.git/
+.gitignore
+.env
+*.md
+LICENSE.txt
+Dockerfile
+docker-compose*.yml
