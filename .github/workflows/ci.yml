@@ -1,0 +1,51 @@
+# CI pipeline: runs the automated test suite and verifies the Docker stack
+# still starts, on every pull request targeting main and on every push to
+# main.
+#
+# IMPORTANT: for this pipeline to actually block merging, the `test` and
+# `docker-stack` jobs below must be configured as REQUIRED STATUS CHECKS in
+# GitHub branch protection for `main` (Settings > Branches > Branch
+# protection rules). That is a repository setting, not something a workflow
+# file can express.
+
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore
+        run: dotnet restore BlazorEcommerce.sln
+
+      - name: Build
+        run: dotnet build BlazorEcommerce.sln --no-restore
+
+      - name: Test
+        run: dotnet test BlazorEcommerce.sln --no-build --verbosity normal
+
+  docker-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start stack and wait for healthy
+        run: docker compose up -d --wait --wait-timeout 300
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
